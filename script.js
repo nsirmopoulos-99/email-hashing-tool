@@ -17,7 +17,7 @@ let downloadUrl = null;
 function clearData() {
     data = [];
     headers = [];
-    selectedFileName = [];
+    selectedFileName = "";
 
     if (downloadUrl) {
         URL.revokeObjectURL(downloadUrl);

@@ -7,26 +7,58 @@ const hashButton = document.getElementById("hashButton");
 const downloadButton = document.getElementById("downloadButton");
 const status = document.getElementById("status");
 
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
+
 let data = [];
 let headers = [];
 let selectedFileName = "";
+let downloadUrl = null;
+
+function clearData() {
+    data = [];
+    headers = [];
+    selectedFileName = [];
+
+    if (downloadUrl) {
+        URL.revokeObjectURL(downloadUrl);
+        downloadUrl = null;
+    }
+
+    downloadButton.hidden = true;
+    columnSection.hidden = true;
+}
+
+// Prevent spreadsheet formulas from executing in exported CSV
+function safeCsvValue(value) {
+    let text = String(value ?? "");
+
+    // Neutralize formula-like values
+    if (/^[\s]*[=+\-@]/.test(text)) {
+        text = "'" + text;
+    }
+
+    return text;
+}
 
 // Upload file
 fileInput.addEventListener("change", async (event) => {
-    const file = event.target.files[0];
+    clearData();
 
+    const file = event.target.files[0];
     if (!file) return;
 
     try {
+        if (file.size > MAX_FILE_SIZE) {
+            throw new Error("Maximum file size is 20 MB.");
+        }
+
         const extension = file.name.split(".").pop().toLowerCase();
 
         if (!["csv", "xlsx"].includes(extension)) {
-            throw new Error("Please upload a CSV or XLSX file.");
+            throw new Error("Only CSV and XLSX files are supported.");
         }
 
         status.textContent = "Reading file...";
-        downloadButton.hidden = true;
-        columnSection.hidden = true;
 
         const buffer = await file.arrayBuffer();
 
@@ -44,7 +76,7 @@ fileInput.addEventListener("change", async (event) => {
         });
 
         if (rows.length < 2 || !rows[0].length) {
-            throw new Error("The file must contain a header and data rows.");
+            throw new Error("The file must contain headers and data.");
         }
 
         headers = rows[0].map((value, index) =>
@@ -56,7 +88,7 @@ fileInput.addEventListener("change", async (event) => {
         );
 
         if (!data.length) {
-            throw new Error("No data rows were found.");
+            throw new Error("No data rows found.");
         }
 
         selectedFileName = file.name;
@@ -70,7 +102,6 @@ fileInput.addEventListener("change", async (event) => {
             emailColumn.appendChild(option);
         });
 
-        // Automatically detect an email column
         const detectedIndex = headers.findIndex(header =>
             header.toLowerCase().replace(/[^a-z]/g, "").includes("email")
         );
@@ -80,12 +111,17 @@ fileInput.addEventListener("change", async (event) => {
         }
 
         fileName.textContent =
-            `${file.name} — ${data.length} data rows`;
+            `${file.name} — ${data.length} rows`;
 
         columnSection.hidden = false;
-        status.textContent = "File successfully loaded. Select your email column.";
+        status.textContent = "File loaded successfully.";
 
+        // Release the original file buffer
+        // after reading it into memory
+        workbook.Sheets = {};
+        
     } catch (error) {
+        clearData();
         status.textContent = error.message;
     }
 });
@@ -118,9 +154,10 @@ hashButton.addEventListener("click", async () => {
     downloadButton.hidden = true;
 
     try {
-        status.textContent = "Hashing emails... Please wait.";
+        status.textContent = "Hashing emails...";
 
-        const hashedData = [];
+        const outputHeaders = [...headers, "hashed_email"];
+        const outputRows = [outputHeaders];
 
         for (const row of data) {
             const newRow = [...row];
@@ -129,15 +166,11 @@ hashButton.addEventListener("click", async () => {
             const hashedEmail = await hashEmail(email);
 
             newRow.push(hashedEmail);
-            hashedData.push(newRow);
+
+            outputRows.push(
+                newRow.map(safeCsvValue)
+            );
         }
-
-        const outputHeaders = [...headers, "hashed_email"];
-
-        const outputRows = [
-            outputHeaders,
-            ...hashedData
-        ];
 
         const worksheet = XLSX.utils.aoa_to_sheet(outputRows);
 
@@ -147,21 +180,11 @@ hashButton.addEventListener("click", async () => {
             type: "text/csv;charset=utf-8;"
         });
 
-        const url = URL.createObjectURL(blob);
+        if (downloadUrl) {
+            URL.revokeObjectURL(downloadUrl);
+        }
 
-        downloadButton.onclick = () => {
-            const link = document.createElement("a");
-
-            link.href = url;
-            link.download = "hashed_" +
-                selectedFileName.replace(/\.(csv|xlsx)$/i, ".csv");
-
-            link.click();
-
-            URL.revokeObjectURL(url);
-            downloadButton.hidden = true;
-            status.textContent = "Your CSV file has been downloaded.";
-        };
+        downloadUrl = URL.createObjectURL(blob);
 
         downloadButton.hidden = false;
 
@@ -173,4 +196,26 @@ hashButton.addEventListener("click", async () => {
     } finally {
         hashButton.disabled = false;
     }
+});
+
+// Download CSV
+downloadButton.addEventListener("click", () => {
+    if (!downloadUrl) return;
+
+    const link = document.createElement("a");
+
+    link.href = downloadUrl;
+    link.download = "hashed_" +
+        selectedFileName.replace(/\.(csv|xlsx)$/i, ".csv");
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    clearData();
+
+    fileInput.value = "";
+    fileName.textContent = "";
+    status.textContent = "Download complete. Temporary data cleared.";
+    hashButton.disabled = false;
 });

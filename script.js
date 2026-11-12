@@ -156,7 +156,7 @@ hashButton.addEventListener("click", async () => {
     try {
         status.textContent = "Hashing emails...";
 
-        const outputHeaders = [...headers, "hashed_email"];
+        const outputHeaders = [...headers];
         const outputRows = [outputHeaders];
 
         for (const row of data) {
@@ -165,7 +165,7 @@ hashButton.addEventListener("click", async () => {
             const email = row[columnIndex] ?? "";
             const hashedEmail = await hashEmail(email);
 
-            newRow.push(hashedEmail);
+            newRow[columnIndex] = hashedEmail;
 
             outputRows.push(
                 newRow.map(safeCsvValue)

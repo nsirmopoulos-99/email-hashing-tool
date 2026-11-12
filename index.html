@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Hashing Tool | SHA-256</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- SheetJS: Read CSV and Excel files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <main class="container">
+        <div class="logo">🔐</div>
+
+        <h1>Email Hashing Tool</h1>
+        <p class="subtitle">
+            Securely hash your email addresses using SHA-256.
+        </p>
+
+        <div class="upload-box">
+            <label for="fileInput" class="upload-label">
+                <span class="upload-icon">📁</span>
+                <strong>Upload your file</strong>
+                <span>CSV or Excel (.xlsx)</span>
+                <input type="file" id="fileInput"
+                       accept=".csv,.xlsx" hidden>
+            </label>
+        </div>
+
+        <p id="fileName" class="file-name"></p>
+
+        <div id="columnSection" class="section" hidden>
+            <label for="emailColumn">Select your email column</label>
+            <select id="emailColumn"></select>
+
+            <button id="hashButton">
+                Hash Emails with SHA-256
+            </button>
+        </div>
+
+        <div id="status" class="status" role="status"></div>
+
+        <button id="downloadButton" hidden>
+            ↓ Download Hashed CSV
+        </button>
+
+        <p class="privacy">
+            🔒 Your data is processed locally in your browser.
+            No files are uploaded to a server.
+        </p>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
